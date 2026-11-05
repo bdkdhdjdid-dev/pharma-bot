@@ -19,12 +19,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
 )
-
-# محاولة استيراد algeria-geo مع بديل تلقائي في حال حدوث أي خطأ
-try:
-    from algeria_geo import get_wilayas, get_dairas, get_communes
-except Exception:
-    get_wilayas, get_dairas, get_communes = None, None, None
+from algeria_geo import get_wilayas, get_dairas, get_communes
 
 BOT_TOKEN = "8096008530:AAHezBeF3ddNsJXr2RVaWSmQvoK_nm3VU5w"
 
@@ -88,66 +83,44 @@ MEDICINES_DB = {
 
 ITEMS_PER_PAGE = 8
 
-# دوال جلب البيانات الآمنة
+# دوال استخراج البيانات المتوافقة مع كائنات algeria-geo وقواميسها
+def get_obj_attr(obj, attr_names, default=""):
+    for name in attr_names:
+        if hasattr(obj, name):
+            val = getattr(obj, name)
+            if val is not None:
+                return val
+        elif isinstance(obj, dict) and name in obj:
+            val = obj[name]
+            if val is not None:
+                return val
+    return default
+
 def fetch_wilayas():
-    if get_wilayas:
-        try:
-            raw = get_wilayas()
-            res = []
-            for item in raw:
-                code = str(item.get('code') or item.get('id', '0')).zfill(2)
-                name = item.get('name_ar') or item.get('name') or f"ولاية {code}"
-                res.append((code, name))
-            return sorted(res, key=lambda x: int(x[0]) if x[0].isdigit() else 99)
-        except Exception:
-            pass
-    # قائمة احتياطية في حال تعثر المكتبة
-    return [
-        ("01", "أدرار"), ("02", "الشلف"), ("03", "الأغواط"), ("04", "أم البواقي"),
-        ("05", "باتنة"), ("06", "بجاية"), ("07", "بسكرة"), ("08", "بشار"),
-        ("09", "البليدة"), ("10", "البويرة"), ("11", "تمنراست"), ("12", "تبسة"),
-        ("13", "تلمسان"), ("14", "تيارت"), ("15", "تيزي وزو"), ("16", "الجزائر العاصمة"),
-        ("17", "الجلفة"), ("18", "جيجل"), ("19", "سطيف"), ("20", "سعيدة"),
-        ("21", "سكيكدة"), ("22", "سيدي بلعباس"), ("23", "عنابة"), ("24", "قالمة"),
-        ("25", "قسنطينة"), ("26", "المدية"), ("27", "مستغانم"), ("28", "المسيلة"),
-        ("29", "معسكر"), ("30", "ورقلة"), ("31", "وهران"), ("32", "البيض"),
-        ("33", "إليزي"), ("34", "برج بوعريريج"), ("35", "بومرداس"), ("36", "الطارف"),
-        ("37", "تندوف"), ("38", "تسمسيلت"), ("39", "الوادي"), ("40", "خنشلة"),
-        ("41", "سوق أهراس"), ("42", "تيبازة"), ("43", "ميلة"), ("44", "عين الدفلى"),
-        ("45", "النعامة"), ("46", "عين تموشنت"), ("47", "غرداية"), ("48", "غليزان"),
-        ("49", "تيميمون"), ("50", "برج باجي مختار"), ("51", "أولاد جلال"), ("52", "بني عباس"),
-        ("53", "عين صالح"), ("54", "عين قزام"), ("55", "تقرت"), ("56", "جانت"),
-        ("57", "المغير"), ("58", "المنيعة")
-    ]
+    raw = get_wilayas()
+    res = []
+    for item in raw:
+        code = str(get_obj_attr(item, ['code', 'id'], '0')).zfill(2)
+        name = get_obj_attr(item, ['name_ar', 'ar_name', 'name'], f"ولاية {code}")
+        res.append((code, name))
+    return sorted(res, key=lambda x: int(x[0]) if x[0].isdigit() else 99)
 
 def fetch_dairas(wilaya_code):
-    if get_dairas:
-        try:
-            raw = get_dairas(wilaya_code=int(wilaya_code))
-            res = []
-            for item in raw:
-                d_id = str(item.get('code') or item.get('id', '1'))
-                d_name = item.get('name_ar') or item.get('name') or "دائرة"
-                res.append((d_id, d_name))
-            if res:
-                return res
-        except Exception:
-            pass
-    return [("1", "الدائرة المركزية"), ("2", "دائرة شرق"), ("3", "دائرة غرب")]
+    raw = get_dairas(wilaya_code=int(wilaya_code))
+    res = []
+    for item in raw:
+        d_code = str(get_obj_attr(item, ['code', 'id'], '1'))
+        d_name = get_obj_attr(item, ['name_ar', 'ar_name', 'name'], "دائرة")
+        res.append((d_code, d_name))
+    return res
 
 def fetch_communes(daira_code):
-    if get_communes:
-        try:
-            raw = get_communes(daira_code=int(daira_code))
-            res = []
-            for item in raw:
-                c_name = item.get('name_ar') or item.get('name') or "البلدية"
-                res.append(c_name)
-            if res:
-                return res
-        except Exception:
-            pass
-    return ["البلدية المركزية", "البلدية الجنوبية", "البلدية الشمالية"]
+    raw = get_communes(daira_code=int(daira_code))
+    res = []
+    for item in raw:
+        c_name = get_obj_attr(item, ['name_ar', 'ar_name', 'name'], "بلدية")
+        res.append(c_name)
+    return res
 
 # لوحات المفاتيح
 def build_wilayas_keyboard(page=0):
@@ -207,7 +180,7 @@ def build_communes_keyboard(wilaya_code, daira_code, page=0):
 
     kb = []
     for i in range(0, len(current), 2):
-        c_name1 = current[i][:20]  # تفادي تجاوز حد حروف تلجرام
+        c_name1 = current[i][:20]
         row = [InlineKeyboardButton(f"🏢 {c_name1}", callback_data=f"c_{wilaya_code}_{daira_code}_{c_name1}")]
         if i + 1 < len(current):
             c_name2 = current[i+1][:20]
@@ -275,23 +248,23 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # الدوائر
     if data.startswith("w_"):
         code = data.split("_")[1]
-        await query.message.edit_text("🏛️ **اختر الدائرة:**", reply_markup=build_dairas_keyboard(code, 0), parse_mode="Markdown")
+        await query.message.edit_text("🏛️ **اختر الدائرة التابعة للولاية:**", reply_markup=build_dairas_keyboard(code, 0), parse_mode="Markdown")
         return
 
     if data.startswith("dp_"):
         _, code, page = data.split("_")
-        await query.message.edit_text("🏛️ **اختر الدائرة:**", reply_markup=build_dairas_keyboard(code, int(page)), parse_mode="Markdown")
+        await query.message.edit_text("🏛️ **اختر الدائرة التابعة للولاية:**", reply_markup=build_dairas_keyboard(code, int(page)), parse_mode="Markdown")
         return
 
     # البلديات
     if data.startswith("d_"):
         _, wilaya_code, daira_code = data.split("_")
-        await query.message.edit_text("🏢 **اختر البلدية لمعرفة الصيدلية المناوبة اليوم:**", reply_markup=build_communes_keyboard(wilaya_code, daira_code, 0), parse_mode="Markdown")
+        await query.message.edit_text("🏢 **اختر البلدية لعرض الصيدلية المناوبة اليوم:**", reply_markup=build_communes_keyboard(wilaya_code, daira_code, 0), parse_mode="Markdown")
         return
 
     if data.startswith("cp_"):
         _, wilaya_code, daira_code, page = data.split("_")
-        await query.message.edit_text("🏢 **اختر البلدية لمعرفة الصيدلية المناوبة اليوم:**", reply_markup=build_communes_keyboard(wilaya_code, daira_code, int(page)), parse_mode="Markdown")
+        await query.message.edit_text("🏢 **اختر البلدية لعرض الصيدلية المناوبة اليوم:**", reply_markup=build_communes_keyboard(wilaya_code, daira_code, int(page)), parse_mode="Markdown")
         return
 
     # بطاقة الصيدلية
@@ -401,7 +374,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = f"🔎 لم نعثر على دواء باسم: `{text}`. اضغط /start لتصفح الخدمات."
     await update.message.reply_text(res, parse_mode="Markdown")
 
-# سيرفر ويب مصغر لإرضاء Render ومنع إيقاف الخدمة
+# سيرفر ويب مصغر لتفادي إيقاف Render
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
