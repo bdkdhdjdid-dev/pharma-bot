@@ -22,7 +22,6 @@ BOT_TOKEN = "8096008530:AAHezBeF3ddNsJXr2RVaWSmQvoK_nm3VU5w"
 
 ARABIC_DAYS = ["الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
 
-# صيدليات معتمدة لبعض البلديات (تتجدد تلقائياً حسب اليوم)
 COMMUNES_ROSTER = {
     "عين البيضاء": [
         {"name": "صيدلية الهناء (د. بوزيد)", "addr": "وسط المدينة قرب بنك BNA", "phone": "032441230", "lat": 35.7964, "lon": 7.3928},
@@ -95,7 +94,6 @@ DRUG_INTERACTIONS = [
 
 ITEMS_PER_PAGE = 8
 
-# 1. لوحة الولايات
 def build_wilayas_keyboard(page=0):
     all_w = get_wilayas()
     total_pages = math.ceil(len(all_w) / ITEMS_PER_PAGE)
@@ -125,7 +123,6 @@ def build_wilayas_keyboard(page=0):
     kb.append([InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="main_menu")])
     return InlineKeyboardMarkup(kb)
 
-# 2. لوحة الدوائر التابعة للولاية
 def build_dairas_keyboard(wilaya_code, page=0):
     all_d = get_dairas(wilaya_code=int(wilaya_code))
     total_pages = math.ceil(len(all_d) / ITEMS_PER_PAGE)
@@ -155,7 +152,6 @@ def build_dairas_keyboard(wilaya_code, page=0):
     kb.append([InlineKeyboardButton("🔙 رجوع لقائمة الولايات", callback_data="wp_0")])
     return InlineKeyboardMarkup(kb)
 
-# 3. لوحة البلديات الرسمية التابعة للدائرة
 def build_communes_keyboard(wilaya_code, daira_code, page=0):
     all_c = get_communes(daira_code=int(daira_code))
     total_pages = math.ceil(len(all_c) / ITEMS_PER_PAGE)
@@ -183,7 +179,6 @@ def build_communes_keyboard(wilaya_code, daira_code, page=0):
     kb.append([InlineKeyboardButton("🔙 رجوع للدوائر", callback_data=f"w_{wilaya_code}")])
     return InlineKeyboardMarkup(kb)
 
-# الواجهة الرئيسية
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
@@ -222,13 +217,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await start(update, context)
         return
 
-    # الولايات
     if data.startswith("wp_"):
         p = int(data.split("_")[1])
         await query.message.edit_text("🇩🇿 **اختر الولاية:**", reply_markup=build_wilayas_keyboard(p), parse_mode="Markdown")
         return
 
-    # الدوائر
     if data.startswith("w_"):
         code = data.split("_")[1]
         await query.message.edit_text("🏛️ **اختر الدائرة التابعة للولاية:**", reply_markup=build_dairas_keyboard(code, 0), parse_mode="Markdown")
@@ -239,7 +232,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text("🏛️ **اختر الدائرة التابعة للولاية:**", reply_markup=build_dairas_keyboard(code, int(page)), parse_mode="Markdown")
         return
 
-    # البلديات
     if data.startswith("d_"):
         _, wilaya_code, daira_code = data.split("_")
         await query.message.edit_text("🏢 **اختر البلدية لعرض الصيدلية المناوبة اليوم:**", reply_markup=build_communes_keyboard(wilaya_code, daira_code, 0), parse_mode="Markdown")
@@ -250,7 +242,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text("🏢 **اختر البلدية لعرض الصيدلية المناوبة اليوم:**", reply_markup=build_communes_keyboard(wilaya_code, daira_code, int(page)), parse_mode="Markdown")
         return
 
-    # بطاقة الصيدلية اليومية
     if data.startswith("c_"):
         _, wilaya_code, daira_code, commune_name = data.split("_", 3)
         ph, day_name, date_str = get_pharmacy_today(commune_name)
@@ -342,7 +333,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(reply, parse_mode="Markdown")
         return
 
-    # بحث عن دواء
     q = text.lower()
     found = None
     for k in MEDICINES_DB:
