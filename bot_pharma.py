@@ -353,7 +353,27 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = f"🔎 لم نعثر على دواء باسم: `{text}`. اضغط /start لتصفح الخدمات."
     await update.message.reply_text(res, parse_mode="Markdown")
 
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# سيرفر ويب مصغر لإرضاء متطلبات Render المجانية
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write("✅ Bot is running perfectly!".encode("utf-8"))
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
 if __name__ == "__main__":
+    # تشغيل خادم المنفذ في خيط خلفي
+    threading.Thread(target=run_dummy_server, daemon=True).start()
+
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
